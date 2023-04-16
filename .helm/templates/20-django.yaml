@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+spec:
+  selector:
+    matchLabels:
+      component: {{ .Chart.Name }}
+  replicas: {{ pluck .Values.global.env .Values.django.replicas | first | default .Values.django.replicas._default }}
+  template:
+    metadata:
+      labels:
+        component: {{ .Chart.Name }}
+      annotations:
+        checksum/configs: {{ include (print $.Template.BasePath "/10-configs.yaml") . | sha256sum }}
+    spec:
+      affinity:
+      {{- include "affinity" . | indent 8 }}
+      imagePullSecrets:
+      - name: registrysecret
+      containers:
+      - name: {{ .Chart.Name }}
+        image: {{ .Values.werf.image.django }}
+        command: ["gunicorn"]
+        args: ["--bind", "0.0.0.0:8000", "project.wsgi"]
+        workingDir: /app
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        env:
+        {{- include "postgres_env" . | indent 8 }}
+        resources:
+          {{- toYaml (pluck .Values.global.env .Values.django.resources | first | default .Values.django.resources._default) | nindent 12 }}
+        volumeMounts:
+        - name: {{ .Chart.Name }}-configs
+          mountPath: /app/project/settings.py
+          subPath: settings.py
+        - name: {{ .Chart.Name }}-configs
+          mountPath: /app/project/urls.py
+          subPath: urls.py
+        - name: {{ .Chart.Name }}-static
+          mountPath: /app/static
+          readOnly: false
+      volumes:
+      - name: {{ .Chart.Name }}-configs
+        configMap:
+          name: {{ .Chart.Name }}-configs
+      - name: {{ .Chart.Name }}-static
+        emptyDir: {} # Change coming
+      nodeSelector: {}
+      tolerations:
+      {{- include "tolerations" . | indent 8 }}
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ .Chart.Name }}
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: {{ .Chart.Name }}
+  updatePolicy:
+    updateMode: "Initial"
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Chart.Name }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      name: {{ .Chart.Name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Chart.Name }}
+spec:
+  selector:
+    component: {{ .Chart.Name }}
+  ports:
+  - name: {{ .Chart.Name }}
+    port: 8000
+    protocol: TCP

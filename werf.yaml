@@ -1,0 +1,24 @@
+project: django
+configVersion: 1
+---
+image: django
+from: ubuntu:18.04
+git:
+- add: /project
+  to: /app
+  stageDependencies:
+    install:
+    - "**/requirements.txt"
+shell:
+  beforeInstall:
+  - apt update
+  - apt install python3-pip -y
+  - pip3 install --upgrade pip
+  - pip3 install psycopg2-binary
+  - pip3 install gunicorn
+  install:
+  - cd /app
+  - pip3 install -r requirements.txt
+---
+image: postgres
+from: postgres:14

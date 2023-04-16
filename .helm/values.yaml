@@ -1,0 +1,28 @@
+django:
+  replicas:
+    _default: 2
+  resources:
+    _default:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+postgres:
+  replicas:
+    _default: 1
+  resources:
+    _default:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+  db:
+    _default: postgres
+  user:
+    _default: postgres
+  host:
+    _default: postgres
+  port:
+    _default: 5432

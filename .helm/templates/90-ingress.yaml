@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+  {{- if (ne .Values.global.env "production") }}
+    nginx.ingress.kubernetes.io/auth-signin: https://$host/dex-authenticator/sign_in
+    nginx.ingress.kubernetes.io/auth-url: https://{{ .Chart.Name }}-dex-authenticator.{{ .Chart.Name }}-{{ .Values.global.env }}.svc.cluster.local/dex-authenticator/auth
+    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-User,X-Auth-Request-Email
+  {{- end }}
+    kubernetes.io/ingress.class: nginx
+  name: {{ .Chart.Name }}
+spec:
+  tls:
+  - hosts:
+    - {{ .Values.global.ci_url }}
+    secretName: {{ .Chart.Name }}-{{ .Values.global.env }}-tls
+  rules:
+  - host: {{ .Values.global.ci_url }}
+    http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ .Chart.Name }}
+            port:
+              number: 8000
+---
+{{- if eq $.Values.global.env "production" }}
+apiVersion: certmanager.k8s.io/v1alpha1
+{{- else }}
+apiVersion: cert-manager.io/v1
+{{- end }}
+kind: Certificate
+metadata:
+  name: {{ .Chart.Name }}-cert
+spec:
+  secretName: {{ .Chart.Name }}-{{ .Values.global.env }}-tls
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+  commonName: {{ .Values.global.ci_url }}
+  dnsNames:
+  - {{ .Values.global.ci_url }}

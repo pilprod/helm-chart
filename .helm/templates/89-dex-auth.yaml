@@ -1,0 +1,8 @@
+apiVersion: deckhouse.io/v1
+kind: DexAuthenticator
+metadata:
+  name: {{ .Chart.Name }}
+spec:
+  applicationDomain: {{ .Values.global.ci_url | quote }}
+  applicationIngressCertificateSecretName: {{ .Chart.Name }}-{{ .Values.global.env }}-tls
+  applicationIngressClassName: "nginx"

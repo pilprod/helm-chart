@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Chart.Name }}-staticgen
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      name: {{ .Chart.Name }}-staticgen
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}-staticgen
+        command: ["python3"]
+        args: ["manage.py", "collectstatic", "--noinput"]
+        image: {{ .Values.werf.image.django }}
+        workingDir: /app
+        volumeMounts:
+        - name: {{ .Chart.Name }}-configs
+          mountPath: /app/project/settings.py
+          subPath: settings.py
+          readOnly: false
+        - name: {{ .Chart.Name }}-configs
+          mountPath: /app/project/urls.py
+          subPath: urls.py
+          readOnly: false
+        - name: {{ .Chart.Name }}-static
+          mountPath: /app/static
+          readOnly: false
+        env:
+        {{- include "postgres_env" . | indent 8 }}
+      imagePullSecrets:
+      - name: registrysecret
+      restartPolicy: Never
+      volumes:
+      - name: {{ .Chart.Name }}-configs
+        configMap:
+          name: {{ .Chart.Name }}-configs
+      - name: {{ .Chart.Name }}-static
+        emptyDir: {} # Change coming

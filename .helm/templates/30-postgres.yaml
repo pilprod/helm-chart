@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Chart.Name }}-postgres
+spec:
+  selector:
+    matchLabels:
+      component: {{ .Chart.Name }}-postgres
+  serviceName: postgres
+  replicas: {{ pluck .Values.global.env .Values.postgres.replicas | first | default .Values.postgres.replicas._default }}
+  template:
+    metadata:
+      labels:
+        component: {{ .Chart.Name }}-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: {{ .Values.werf.image.postgres }}
+        ports:
+        - containerPort: 5432
+          name: postgres
+          protocol: TCP
+        env:
+        {{- include "postgres_env" . | indent 8 }}
+        - name: PGDATA
+          value: /data/pgdata
+      imagePullSecrets:
+      - name: registrysecret
+  volumeClaimTemplates:
+  - metadata:
+      name: {{ .Chart.Name }}-postgres
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    component: {{ .Chart.Name }}-postgres
+  ports:
+  - name: postgres
+    port: 5432
+    protocol: TCP

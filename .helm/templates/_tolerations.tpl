@@ -1,0 +1,3 @@
+{{- define "tolerations" }}
+[]
+{{- end }}
