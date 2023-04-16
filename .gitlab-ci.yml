@@ -1,0 +1,49 @@
+variables:
+  WERF_VERSION: "1.2 stable"
+
+stages:
+  - deploy
+  - cleanup
+
+before_script:
+  - type trdl && . $(trdl use werf ${WERF_VERSION})
+  - type werf && source $(werf ci-env gitlab --as-file)
+
+.base_deploy: &base_deploy
+  stage: deploy
+  script:
+    - werf converge
+      --set "global.ci_url=$(echo ${CI_ENVIRONMENT_URL} | cut -d / -f 3)"
+      --set "global.commit_tag=${CI_COMMIT_SHORT_SHA}"
+  except: [schedules]
+  tags: [werf]
+
+Deploy to Dev:
+  <<: *base_deploy
+  environment:
+    name: dev
+    url: https://dev.${CI_PROJECT_NAME}.##.com
+
+Deploy to Stage:
+  <<: *base_deploy
+  environment:
+    name: stage
+    url: https://stage.${CI_PROJECT_NAME}.##.com
+  only: [main]
+  when: manual
+
+Deploy to Production:
+  <<: *base_deploy
+  environment:
+    name: production
+    url: https://${CI_PROJECT_NAME}.##.com
+  only:
+    - tags
+
+Cleanup:
+  stage: cleanup
+  script:
+    - docker login -u nobody -p ${WERF_IMAGES_CLEANUP_PASSWORD} ${WERF_REPO}
+    - werf cleanup
+  only: [schedules]
+  tags: [werf]
